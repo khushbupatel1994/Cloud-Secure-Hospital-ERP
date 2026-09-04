@@ -95,30 +95,89 @@ def initialize_demo_database():
     try:
         DB.parent.mkdir(parents=True, exist_ok=True)
 
+        # Make the existing ERP database layer use the Render DB.
         import config.paths as app_paths
-
-        # Make the existing ERP Database class use the Render DB path.
         app_paths.DATABASE_DIR = str(DB.parent)
 
-        from frontend.login.login_crud import LoginCRUD
+        # Initialize all existing ERP core tables.
+        from database.database import Database
 
-        crud = LoginCRUD()
+        db = Database()
+        db.connect()
+        db.close()
 
-        try:
-            crud.close()
-        except Exception:
-            pass
+        # Ensure the login users table exists and demo admin is present.
+        with sqlite3.connect(DB) as con:
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS users(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_id TEXT UNIQUE,
+                    full_name TEXT NOT NULL,
+                    username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    department TEXT,
+                    mobile TEXT,
+                    email TEXT,
+                    security_question TEXT,
+                    security_answer TEXT,
+                    status TEXT DEFAULT 'Active',
+                    last_login TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    failed_attempts INTEGER DEFAULT 0,
+                    account_locked INTEGER DEFAULT 0
+                )
+            """)
 
-        print("✅ Demo database initialized")
-        print(f"✅ Demo database path: {DB}")
+            existing = con.execute(
+                "SELECT id FROM users WHERE username=? COLLATE NOCASE",
+                ("admin",)
+            ).fetchone()
+
+            if not existing:
+                password_hash = bcrypt.hashpw(
+                    b"admin123",
+                    bcrypt.gensalt()
+                ).decode("utf-8")
+
+                con.execute("""
+                    INSERT INTO users(
+                        employee_id,
+                        full_name,
+                        username,
+                        password,
+                        role,
+                        department,
+                        mobile,
+                        email,
+                        security_question,
+                        security_answer,
+                        status
+                    )
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    "EMP001",
+                    "Administrator",
+                    "admin",
+                    password_hash,
+                    "Super Admin",
+                    "Administration",
+                    "9876543210",
+                    "admin@hospital.com",
+                    "What is your favourite color?",
+                    "Blue",
+                    "Active"
+                ))
+
+            con.commit()
+
+        print(f"✅ DEMO DATABASE READY: {DB}")
 
     except Exception as e:
-        print("⚠ Demo database initialization warning:", e)
+        print(f"❌ DEMO DATABASE INITIALIZATION FAILED: {type(e).__name__}: {e}")
 
 
 initialize_demo_database()
-
-
 # ============================================================
 # REQUEST MODELS
 # ============================================================
