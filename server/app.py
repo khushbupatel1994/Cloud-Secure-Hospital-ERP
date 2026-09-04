@@ -87,6 +87,37 @@ security = HTTPBearer(auto_error=False)
 
 _failed = {}
 
+# ============================================================
+# DEMO DATABASE INITIALIZATION
+# ============================================================
+
+def initialize_demo_database():
+    try:
+        DB.parent.mkdir(parents=True, exist_ok=True)
+
+        import config.paths as app_paths
+
+        # Make the existing ERP Database class use the Render DB path.
+        app_paths.DATABASE_DIR = str(DB.parent)
+
+        from frontend.login.login_crud import LoginCRUD
+
+        crud = LoginCRUD()
+
+        try:
+            crud.close()
+        except Exception:
+            pass
+
+        print("✅ Demo database initialized")
+        print(f"✅ Demo database path: {DB}")
+
+    except Exception as e:
+        print("⚠ Demo database initialization warning:", e)
+
+
+initialize_demo_database()
+
 
 # ============================================================
 # REQUEST MODELS
