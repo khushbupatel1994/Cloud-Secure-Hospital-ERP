@@ -599,6 +599,31 @@ class Database:
         )
         """)
 
+        # ==========================================
+        # IPD TABLE
+        # ==========================================
+
+        self.cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ipd(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admission_id TEXT UNIQUE,
+            patient TEXT NOT NULL,
+            doctor TEXT NOT NULL,
+            ward TEXT,
+            bed_no TEXT,
+            admission_date TEXT,
+            discharge_date TEXT,
+            diagnosis TEXT,
+            treatment TEXT,
+            daily_charges REAL,
+            status TEXT,
+            remarks TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+
+        )
+        """)
+
         # COMMIT
         # ==========================================
 
