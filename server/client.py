@@ -2,7 +2,7 @@
 import os, uuid, requests
 
 class ERPApiClient:
-    def __init__(self, base_url=None, api_key=None, timeout=12, verify=None):
+    def __init__(self, base_url=None, api_key=None, timeout=90, verify=None):
         self.base_url = (base_url or os.getenv("ERP_API_URL", "")).rstrip("/")
         if not self.base_url: raise ValueError("ERP_API_URL must be configured")
         self.api_key = api_key or os.getenv("ERP_API_KEY", "")

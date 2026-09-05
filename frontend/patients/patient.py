@@ -2183,6 +2183,58 @@ class Patient(PatientUI):
             # Update
             # =================================================
 
+            # =================================================
+            # CLOUD API UPDATE
+            # =================================================
+
+            if self.api_client:
+
+                payload = {
+                    "patient_name": self.patient_name.get().strip(),
+                    "name": self.patient_name.get().strip(),
+                    "gender": self.gender.get(),
+                    "dob": self.dob.get().strip(),
+                    "age": self.age.get().strip(),
+                    "blood_group": self.blood_group.get(),
+                    "mobile": self.mobile.get().strip(),
+                    "email": self.email.get().strip(),
+                    "address": self.address.get("1.0", "end").strip(),
+                    "city": self.city.get().strip(),
+                    "state": self.state.get().strip(),
+                    "pin_code": self.pin_code.get().strip(),
+                    "aadhaar": self.aadhaar.get().strip(),
+                    "doctor": self.doctor.get(),
+                    "department": self.department.get(),
+                    "patient_type": self.patient_type.get(),
+                    "status": self.status.get(),
+                    "father_husband_name": father_husband_name,
+                    "disease": disease,
+                }
+
+                api_result = self.api_client.request(
+                    "PUT",
+                    f"/api/v1/modules/patients/records/{self.selected_patient_id}",
+                    json={"data": payload}
+                )
+
+                if api_result.get("ok"):
+                    messagebox.showinfo(
+                        "Success",
+                        "Patient updated successfully."
+                    )
+
+                    selected_id = self.selected_patient_id
+                    self.load_patients()
+                    self.selected_patient_id = selected_id
+                    return
+
+                messagebox.showerror(
+                    "Error",
+                    "Unable to update patient on the hospital server."
+                )
+                return
+
+
             success = (
                 self.crud.update_patient(
                     self.selected_patient_id,
