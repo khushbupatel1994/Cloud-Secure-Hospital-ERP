@@ -574,6 +574,31 @@ class Database:
 
 
         # ==========================================
+        # ==========================================
+        # OPD TABLE
+        # ==========================================
+
+        self.cursor.execute("""
+        CREATE TABLE IF NOT EXISTS opd(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opd_id TEXT UNIQUE,
+            patient TEXT NOT NULL,
+            doctor TEXT NOT NULL,
+            department TEXT,
+            visit_date TEXT,
+            visit_time TEXT,
+            chief_complaint TEXT,
+            diagnosis TEXT,
+            prescription TEXT,
+            followup_date TEXT,
+            notes TEXT,
+            status TEXT DEFAULT 'Open',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+
+        )
+        """)
+
         # COMMIT
         # ==========================================
 
