@@ -312,7 +312,7 @@ def query_count(
         "doctors",
         "appointments",
         "lab_tests",
-        "medicines",
+        "pharmacy",
         "inventory",
         "ipd",
         "opd",
@@ -556,7 +556,7 @@ def summary(
         ),
 
         "low_medicines": query_count(
-            "medicines",
+            "pharmacy",
             "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
         ),
 
@@ -970,7 +970,7 @@ def enterprise_dashboard(
         ),
 
         "low_medicines": query_count(
-            "medicines",
+            "pharmacy",
             "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
         ),
 
@@ -1107,7 +1107,7 @@ def bootstrap_notifications(
     )
 
     meds = query_count(
-        "medicines",
+        "pharmacy",
         "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
     )
 
