@@ -556,8 +556,7 @@ def summary(
         ),
 
         "low_medicines": query_count(
-            "pharmacy",
-            "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
+            "pharmacy", "WHERE COALESCE(quantity,0) <= COALESCE(minimum_stock,0)"
         ),
 
         "low_inventory": query_count(
@@ -645,7 +644,7 @@ def ai_assistant(
 
         answer = (
             f"There are "
-            f"{query_count('medicines', 'WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)')} "
+            f"{query_count('pharmacy', 'WHERE COALESCE(quantity,0) <= COALESCE(minimum_stock,0)')} "
             f"medicines at or below minimum stock."
         )
 
@@ -970,8 +969,7 @@ def enterprise_dashboard(
         ),
 
         "low_medicines": query_count(
-            "pharmacy",
-            "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
+            "pharmacy", "WHERE COALESCE(quantity,0) <= COALESCE(minimum_stock,0)"
         ),
 
         "low_inventory": query_count(
@@ -1107,8 +1105,7 @@ def bootstrap_notifications(
     )
 
     meds = query_count(
-        "pharmacy",
-        "WHERE COALESCE(stock_quantity,0) <= COALESCE(minimum_stock,0)"
+        "pharmacy", "WHERE COALESCE(quantity,0) <= COALESCE(minimum_stock,0)"
     )
 
     if pending:
