@@ -162,6 +162,64 @@ class Doctor(DoctorUI):
                 return
 
 
+        # =================================================
+        # CLOUD API UPDATE
+        # =================================================
+
+        if self.api_client:
+
+            payload = {
+                "full_name": self.full_name.get().strip(),
+                "name": self.full_name.get().strip(),
+                "gender": self.gender.get(),
+                "department": self.department.get(),
+                "specialization": self.specialization.get().strip(),
+                "qualification": self.qualification.get().strip(),
+                "experience": self.experience.get().strip(),
+                "mobile": self.mobile.get().strip(),
+                "email": self.email.get().strip(),
+                "consultation_fee": self.consultation_fee.get().strip(),
+                "opd_timing": self.opd_timing.get().strip(),
+                "available_days": self.available_days.get().strip(),
+                "status": self.status.get()
+            }
+
+            try:
+                print("Updating Doctor through Central API...")
+
+                api_result = self.api_client.request(
+                    "PUT",
+                    f"/api/v1/modules/doctors/records/{self.selected_doctor_id}",
+                    json={"data": payload}
+                )
+
+                if isinstance(api_result, dict) and api_result.get("ok"):
+                    print("Central Doctor Updated:", api_result)
+
+                    messagebox.showinfo(
+                        "Success",
+                        "Doctor updated successfully."
+                    )
+
+                    self.load_doctors()
+                    self.clear_form()
+                    self.selected_doctor_id = None
+                    return
+
+                messagebox.showerror(
+                    "Error",
+                    "Unable to update doctor on the hospital server."
+                )
+                return
+
+            except Exception as e:
+                print("Cloud Doctor Update Error:", e)
+                messagebox.showerror(
+                    "Error",
+                    f"Unable to update doctor on the hospital server.\n\n{e}"
+                )
+                return
+
         # Duplicate Mobile Check
         duplicate = self.crud.check_duplicate_mobile(mobile)
         if duplicate:
@@ -315,56 +373,115 @@ class Doctor(DoctorUI):
             "values"
         )
 
-        self.selected_doctor_id = values[0]
-
-        doctor = self.crud.get_doctor_by_id(
-            self.selected_doctor_id
-        )
-
-        if not doctor:
+        if not values:
             return
 
-        self.doctor_id.configure(state="normal")
+        self.selected_doctor_id = values[0]
 
-        self.doctor_id.delete(0, "end")
-        self.doctor_id.insert(0, doctor[1])
+        try:
 
-        self.doctor_id.configure(state="disabled")
+            if self.api_client:
 
-        self.full_name.delete(0, "end")
-        self.full_name.insert(0, doctor[2])
+                print("Loading selected Doctor from Central API...")
 
-        self.gender.set(doctor[3])
+                response = self.api_client.request(
+                    "GET",
+                    "/api/v1/modules/doctors/records",
+                    params={
+                        "limit": 100,
+                        "offset": 0,
+                        "search": ""
+                    }
+                )
 
-        self.department.set(doctor[4])
+                items = response.get("items", []) if isinstance(response, dict) else []
 
-        self.specialization.delete(0, "end")
-        self.specialization.insert(0, doctor[5])
+                doctor = next(
+                    (row for row in items if str(row.get("id", "")) == str(self.selected_doctor_id)),
+                    None
+                )
 
-        self.qualification.delete(0, "end")
-        self.qualification.insert(0, doctor[6])
+                if not doctor:
+                    messagebox.showerror(
+                        "Error",
+                        "Selected doctor was not found on the hospital server."
+                    )
+                    return
 
-        self.experience.delete(0, "end")
-        self.experience.insert(0, doctor[7])
+                self.doctor_id.configure(state="normal")
+                self.doctor_id.delete(0, "end")
+                self.doctor_id.insert(0, doctor.get("doctor_id", ""))
+                self.doctor_id.configure(state="disabled")
 
-        self.mobile.delete(0, "end")
-        self.mobile.insert(0, doctor[8])
+                self.full_name.delete(0, "end")
+                self.full_name.insert(0, doctor.get("full_name") or doctor.get("name", ""))
 
-        self.email.delete(0, "end")
-        self.email.insert(0, doctor[9])
+                self.gender.set(doctor.get("gender", "") or "")
+                self.department.set(doctor.get("department", "") or "")
 
-        self.consultation_fee.delete(0, "end")
-        self.consultation_fee.insert(0, doctor[10])
+                self.specialization.delete(0, "end")
+                self.specialization.insert(0, doctor.get("specialization", "") or "")
 
-        self.opd_timing.set(
-           doctor[11] if doctor[11] else ""
-        )
+                self.qualification.delete(0, "end")
+                self.qualification.insert(0, doctor.get("qualification", "") or "")
 
-        self.available_days.set(
-           doctor[12] if doctor[12] else ""
-        )
+                self.experience.delete(0, "end")
+                self.experience.insert(0, str(doctor.get("experience", "") or ""))
 
-        self.status.set(doctor[13])
+                self.mobile.delete(0, "end")
+                self.mobile.insert(0, doctor.get("mobile") or doctor.get("phone", ""))
+
+                self.email.delete(0, "end")
+                self.email.insert(0, doctor.get("email", "") or "")
+
+                self.consultation_fee.delete(0, "end")
+                self.consultation_fee.insert(0, str(doctor.get("consultation_fee", "") or ""))
+
+                self.opd_timing.set(doctor.get("opd_timing", "") or "")
+                self.available_days.set(doctor.get("available_days", "") or "")
+                self.status.set(doctor.get("status", "") or "")
+
+                print("Selected Doctor Loaded:", doctor.get("full_name") or doctor.get("name", ""))
+                return
+
+            # Local fallback
+            doctor = self.crud.get_doctor_by_id(self.selected_doctor_id)
+
+            if not doctor:
+                return
+
+            self.doctor_id.configure(state="normal")
+            self.doctor_id.delete(0, "end")
+            self.doctor_id.insert(0, doctor[1])
+            self.doctor_id.configure(state="disabled")
+
+            self.full_name.delete(0, "end")
+            self.full_name.insert(0, doctor[2])
+            self.gender.set(doctor[3])
+            self.department.set(doctor[4])
+
+            self.specialization.delete(0, "end")
+            self.specialization.insert(0, doctor[5])
+            self.qualification.delete(0, "end")
+            self.qualification.insert(0, doctor[6])
+            self.experience.delete(0, "end")
+            self.experience.insert(0, doctor[7])
+            self.mobile.delete(0, "end")
+            self.mobile.insert(0, doctor[8])
+            self.email.delete(0, "end")
+            self.email.insert(0, doctor[9])
+            self.consultation_fee.delete(0, "end")
+            self.consultation_fee.insert(0, doctor[10])
+            self.opd_timing.set(doctor[11] if doctor[11] else "")
+            self.available_days.set(doctor[12] if doctor[12] else "")
+            self.status.set(doctor[13])
+
+        except Exception as e:
+            print("Load Selected Doctor Error:", e)
+            messagebox.showerror(
+                "Error",
+                f"Unable to load selected doctor.\n\n{e}"
+            )
 
 # ==========================================
 # Update Doctor
