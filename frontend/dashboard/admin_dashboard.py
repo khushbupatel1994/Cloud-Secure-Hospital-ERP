@@ -815,7 +815,8 @@ class AdminDashboard(AdminDashboardUI):
         self.clear_content()
 
         Doctor(
-            self.content
+            self.content,
+            api_client=self.api_client
         )
 
     # ======================================================

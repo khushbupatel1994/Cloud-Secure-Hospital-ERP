@@ -15,7 +15,8 @@ from frontend.doctors.doctor_crud import DoctorCRUD
 
 class Doctor(DoctorUI):
 
-    def __init__(self, root):
+    def __init__(self, root, api_client=None):
+        self.api_client = api_client
 
         super().__init__(root)
 
@@ -104,6 +105,63 @@ class Doctor(DoctorUI):
         ):
             return
 
+        # =================================================
+        # CLOUD API ADD
+        # =================================================
+
+        if self.api_client:
+
+            payload = {
+                "doctor_id": doctor_id,
+                "full_name": full_name,
+                "name": full_name,
+                "gender": gender,
+                "department": department,
+                "specialization": specialization,
+                "qualification": qualification,
+                "experience": experience,
+                "mobile": mobile,
+                "email": email,
+                "consultation_fee": consultation_fee,
+                "opd_timing": opd_timing,
+                "available_days": available_days,
+                "status": status
+            }
+
+            try:
+                print("Adding Doctor through Central API...")
+
+                api_result = self.api_client.request(
+                    "POST",
+                    "/api/v1/modules/doctors/records",
+                    json={"data": payload}
+                )
+
+                if isinstance(api_result, dict) and api_result.get("ok"):
+                    print("Central Doctor Created:", api_result)
+                    messagebox.showinfo(
+                        "Success",
+                        "Doctor added successfully."
+                    )
+                    self.clear_form()
+                    self.load_doctors()
+                    return
+
+                messagebox.showerror(
+                    "Error",
+                    "Unable to add doctor on the hospital server."
+                )
+                return
+
+            except Exception as e:
+                print("Cloud Doctor Add Error:", e)
+                messagebox.showerror(
+                    "Error",
+                    f"Unable to add doctor on the hospital server.\n\n{e}"
+                )
+                return
+
+
         # Duplicate Mobile Check
         duplicate = self.crud.check_duplicate_mobile(mobile)
         if duplicate:
@@ -189,18 +247,59 @@ class Doctor(DoctorUI):
 
     def load_doctors(self):
 
-        for item in self.doctor_table.get_children():
-            self.doctor_table.delete(item)
+        try:
 
-        rows = self.crud.load_doctors()
+            for item in self.doctor_table.get_children():
+                self.doctor_table.delete(item)
 
-        for row in rows:
-            self.doctor_table.insert(
-                "",
-                "end",
-                values=row
-            )
-# ==========================================
+            if self.api_client:
+
+                print("Loading Doctors from Central API...")
+
+                response = self.api_client.request(
+                    "GET",
+                    "/api/v1/modules/doctors/records",
+                    params={
+                        "limit": 100,
+                        "offset": 0,
+                        "search": ""
+                    }
+                )
+
+                items = response.get("items", []) if isinstance(response, dict) else []
+
+                print("All Doctors Count:", len(items))
+
+                for row in items:
+
+                    self.doctor_table.insert(
+                        "",
+                        "end",
+                        values=(
+                            row.get("id", "") ,
+                            row.get("doctor_id", "") ,
+                            row.get("full_name") or row.get("name", "") ,
+                            row.get("department", "") ,
+                            row.get("specialization", "") ,
+                            row.get("mobile", "")
+                        )
+                    )
+
+                return
+
+            # Local fallback
+            rows = self.crud.load_doctors()
+
+            for row in rows:
+                self.doctor_table.insert(
+                    "",
+                    "end",
+                    values=row
+                )
+
+        except Exception as e:
+            print("Load Doctors Error:", e)
+
 # Load Selected Doctor
 # ==========================================
 
