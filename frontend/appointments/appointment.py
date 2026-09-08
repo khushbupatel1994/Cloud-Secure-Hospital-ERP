@@ -39,11 +39,13 @@ class Appointment(Database):
         self,
         parent,
         user=None,
-        role=None
+        role=None,
+        api_client=None
     ):
         super().__init__()
 
         self.parent = parent
+        self.api_client = api_client
         self.user = user
 
         self.role = (
@@ -1806,6 +1808,71 @@ class Appointment(Database):
             )
 
             # -------------------------------------------------
+            # -------------------------------------------------
+            # CLOUD API ADD
+            # -------------------------------------------------
+
+            if self.api_client:
+
+                payload = {
+                    "appointment_id": appointment_id,
+                    "patient_name": patient_name,
+                    "father_husband_name": father_husband_name,
+                    "disease": disease,
+                    "doctor_name": doctor_name,
+                    "department": department,
+                    "appointment_date": appointment_date,
+                    "appointment_time": appointment_time,
+                    "visit_type": visit_type,
+                    "token_no": token_no,
+                    "status": status,
+                    "remarks": remarks
+                }
+
+                try:
+
+                    print("Adding Appointment through Central API...")
+
+                    api_result = self.api_client.request(
+                        "POST",
+                        "/api/v1/modules/appointments/records",
+                        json={"data": payload}
+                    )
+
+                    if isinstance(api_result, dict) and api_result.get("ok"):
+
+                        cloud_id = api_result.get("id")
+
+                        self.selected_appointment_id = (
+                            int(cloud_id)
+                            if cloud_id is not None
+                            else None
+                        )
+
+                        print("Central Appointment Created:", api_result)
+
+                        self.show_success(
+                            f"Appointment {appointment_id} added successfully."
+                        )
+
+                        self.load_appointments()
+
+                        return True
+
+                    self.show_error(
+                        "Unable to add appointment on the hospital server."
+                    )
+                    return False
+
+                except Exception as e:
+
+                    print("Cloud Appointment Add Error:", e)
+
+                    self.show_error(
+                        f"Unable to add appointment on the hospital server.\n\n{e}"
+                    )
+                    return False
+
             # INSERT
             # -------------------------------------------------
 
@@ -1914,6 +1981,51 @@ class Appointment(Database):
     ):
 
         try:
+
+            # =================================================
+            # CLOUD API LOAD
+            # =================================================
+
+            if self.api_client:
+
+                print("Loading Appointments from Central API...")
+
+                response = self.api_client.request(
+                    "GET",
+                    "/api/v1/modules/appointments/records",
+                    params={
+                        "limit": 100,
+                        "offset": 0,
+                        "search": str(keyword or "").strip()
+                    }
+                )
+
+                items = response.get("items", []) if isinstance(response, dict) else []
+
+                display_rows = []
+
+                for item in items:
+                    display_rows.append((
+                        item.get("id", ""),
+                        item.get("appointment_id", ""),
+                        item.get("patient_name", ""),
+                        item.get("father_husband_name", ""),
+                        item.get("disease", ""),
+                        item.get("doctor_name", ""),
+                        item.get("department", ""),
+                        item.get("appointment_date", ""),
+                        item.get("appointment_time", ""),
+                        item.get("token_no", ""),
+                        item.get("status", "") or "Pending",
+                        item.get("remarks", "")
+                    ))
+
+                if hasattr(self.ui, "load_data"):
+                    self.ui.load_data(display_rows)
+
+                print("Appointments Loaded from Cloud:", len(display_rows))
+                return display_rows
+
 
             base_query = """
                 SELECT

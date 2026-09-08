@@ -836,7 +836,8 @@ class AdminDashboard(AdminDashboardUI):
         Appointment(
             self.content,
             user=self.user,
-            role=self.role
+            role=self.role,
+            api_client=self.api_client
         )
 
     # ======================================================
@@ -1420,3 +1421,5 @@ class AdminDashboard(AdminDashboardUI):
         print(
             "Dashboard UI Loaded"
         )
+
+
