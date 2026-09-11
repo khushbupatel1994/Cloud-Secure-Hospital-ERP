@@ -2002,6 +2002,10 @@ class Appointment(Database):
 
                 items = response.get("items", []) if isinstance(response, dict) else []
 
+                # Keep the complete cloud records locally so row selection
+                # does not require a separate GET /records/{id} endpoint.
+                self._cloud_appointments = items if isinstance(items, list) else []
+
                 display_rows = []
 
                 for item in items:
@@ -2420,6 +2424,79 @@ class Appointment(Database):
                 appointment_db_id
             )
 
+            # -------------------------------------------------
+            # CLOUD API SELECT
+            # -------------------------------------------------
+            #
+            # The appointments API currently provides the collection
+            # endpoint only. Use the records already loaded into
+            # self._cloud_appointments instead of calling
+            # /records/{id}.
+            # -------------------------------------------------
+
+            if self.api_client:
+
+                cloud_items = getattr(
+                    self,
+                    "_cloud_appointments",
+                    []
+                )
+
+                if isinstance(cloud_items, list):
+
+                    for appointment in cloud_items:
+
+                        if not isinstance(appointment, dict):
+                            continue
+
+                        try:
+                            cloud_id = int(
+                                appointment.get("id")
+                            )
+                        except (TypeError, ValueError):
+                            continue
+
+                        if cloud_id != appointment_db_id:
+                            continue
+
+                        self.selected_appointment_id = (
+                            appointment_db_id
+                        )
+
+                        # Convert the Cloud API dictionary into the same
+                        # tuple structure expected by appointment_row_selected().
+                        cloud_row = (
+                            appointment.get("id", ""),
+                            appointment.get("appointment_id", ""),
+                            appointment.get("patient_name", ""),
+                            appointment.get("father_husband_name", ""),
+                            appointment.get("disease", ""),
+                            appointment.get("doctor_name", ""),
+                            appointment.get("department", ""),
+                            appointment.get("appointment_date", ""),
+                            appointment.get("appointment_time", ""),
+                            appointment.get("visit_type", "OPD"),
+                            appointment.get("token_no", ""),
+                            appointment.get("status", "Pending") or "Pending",
+                            appointment.get("remarks", "")
+                        )
+
+                        print(
+                            "✅ Selected Cloud Appointment:",
+                            appointment_db_id
+                        )
+
+                        return cloud_row
+
+                print(
+                    "Cloud appointment not found in cache:",
+                    appointment_db_id
+                )
+
+            # -------------------------------------------------
+            # LOCAL DATABASE FALLBACK
+            # -------------------------------------------------
+
             self.cursor.execute(
                 """
                 SELECT
@@ -2759,6 +2836,70 @@ class Appointment(Database):
                 return False
 
             # -------------------------------------------------
+            # CLOUD UPDATE
+            # -------------------------------------------------
+
+            if self.api_client:
+
+                payload = {
+                    "appointment_id": data.get("appointment_id", ""),
+                    "patient_name": patient_name,
+                    "father_husband_name": father_husband_name,
+                    "disease": disease,
+                    "doctor_name": doctor_name,
+                    "department": department,
+                    "appointment_date": appointment_date,
+                    "appointment_time": appointment_time,
+                    "visit_type": visit_type,
+                    "token_no": token_no,
+                    "status": status,
+                    "remarks": remarks
+                }
+
+                try:
+
+                    print(
+                        "Updating Appointment through Central API...",
+                        appointment_db_id
+                    )
+
+                    response = self.api_client.request(
+                        "PUT",
+                        f"/api/v1/modules/appointments/records/{appointment_db_id}",
+                        json={"data": payload}
+                    )
+
+                    print(
+                        "✅ Cloud Appointment Updated:",
+                        response
+                    )
+
+                    self.selected_appointment_id = (
+                        appointment_db_id
+                    )
+
+                    self.show_success(
+                        "Appointment updated successfully."
+                    )
+
+                    self.load_appointments()
+
+                    return True
+
+                except Exception as e:
+
+                    print(
+                        "Cloud Update Appointment Error:",
+                        e
+                    )
+
+                    self.show_error(
+                        f"Cloud Update Appointment Error:\n{e}"
+                    )
+
+                    return False
+
+            # -------------------------------------------------
             # UPDATE
             # -------------------------------------------------
 
@@ -2895,6 +3036,127 @@ class Appointment(Database):
             if not confirm:
 
                 return False
+
+            # -------------------------------------------------
+            # CLOUD DELETE
+            # -------------------------------------------------
+
+            if self.api_client:
+
+                # -------------------------------------------------
+                # Doctor security for Cloud Delete
+                # -------------------------------------------------
+
+                if self.is_doctor():
+
+                    doctor_names = (
+                        self.get_logged_doctor_full_names()
+                        or
+                        self.get_logged_in_doctor_names()
+                    )
+
+                    if not doctor_names:
+
+                        self.show_error(
+                            "Doctor identity not found."
+                        )
+
+                        return False
+
+                    cloud_appointment = None
+
+                    for item in getattr(
+                        self,
+                        "_cloud_appointments",
+                        []
+                    ):
+
+                        if not isinstance(item, dict):
+                            continue
+
+                        try:
+                            cloud_id = int(
+                                item.get("id")
+                            )
+                        except (TypeError, ValueError):
+                            continue
+
+                        if cloud_id == int(
+                            appointment_db_id
+                        ):
+
+                            cloud_appointment = item
+                            break
+
+                    if not cloud_appointment:
+
+                        self.show_error(
+                            "Selected appointment was not found in Cloud data."
+                        )
+
+                        return False
+
+                    cloud_doctor = str(
+                        cloud_appointment.get(
+                            "doctor_name",
+                            ""
+                        )
+                    ).strip().lower()
+
+                    allowed = any(
+                        cloud_doctor
+                        ==
+                        str(name).strip().lower()
+                        for name in doctor_names
+                    )
+
+                    if not allowed:
+
+                        self.show_error(
+                            "You can only delete your own appointment."
+                        )
+
+                        return False
+
+                try:
+
+                    print(
+                        "Deleting Appointment through Central API...",
+                        appointment_db_id
+                    )
+
+                    response = self.api_client.request(
+                        "DELETE",
+                        f"/api/v1/modules/appointments/records/{appointment_db_id}"
+                    )
+
+                    print(
+                        "✅ Cloud Appointment Deleted:",
+                        response
+                    )
+
+                    self.selected_appointment_id = None
+
+                    self.show_success(
+                        "Appointment deleted successfully."
+                    )
+
+                    self.load_appointments()
+
+                    return True
+
+                except Exception as e:
+
+                    print(
+                        "Cloud Delete Appointment Error:",
+                        e
+                    )
+
+                    self.show_error(
+                        f"Cloud Delete Appointment Error:\n{e}"
+                    )
+
+                    return False
 
             # -------------------------------------------------
             # Doctor security
