@@ -20,7 +20,17 @@ class Database:
         import shutil
 
         os.makedirs(DATABASE_DIR, exist_ok=True)
-        self.db_path = os.path.join(DATABASE_DIR, "hospital.db")
+        self.db_path = os.getenv(
+    "HOSPITAL_DB",
+    os.path.join(DATABASE_DIR, "hospital.db")
+)
+
+self.db_path = os.path.abspath(self.db_path)
+
+os.makedirs(
+    os.path.dirname(self.db_path),
+    exist_ok=True
+)
 
         bundled_db = resource_path("database", "hospital.db")
         if not os.path.exists(self.db_path) and os.path.exists(bundled_db):
