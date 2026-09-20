@@ -88,96 +88,99 @@ security = HTTPBearer(auto_error=False)
 _failed = {}
 
 # ============================================================
-# DEMO DATABASE INITIALIZATION
+# RENDER DEMO DATABASE INITIALIZATION
 # ============================================================
 
 def initialize_demo_database():
-    try:
-        DB.parent.mkdir(parents=True, exist_ok=True)
+    DB.parent.mkdir(parents=True, exist_ok=True)
 
-        # Make the existing ERP database layer use the Render DB.
+    # Always create/open the exact database configured for this API.
+    with sqlite3.connect(DB) as con:
+        con.execute("PRAGMA foreign_keys = ON")
+
+        # Users table is required for API login.
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS users(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id TEXT UNIQUE,
+                full_name TEXT NOT NULL,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT NOT NULL,
+                department TEXT,
+                mobile TEXT,
+                email TEXT,
+                security_question TEXT,
+                security_answer TEXT,
+                status TEXT DEFAULT 'Active',
+                last_login TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                failed_attempts INTEGER DEFAULT 0,
+                account_locked INTEGER DEFAULT 0
+            )
+        """)
+
+        existing = con.execute(
+            "SELECT id FROM users WHERE username=? COLLATE NOCASE",
+            ("admin",)
+        ).fetchone()
+
+        if not existing:
+            password_hash = bcrypt.hashpw(
+                b"admin123",
+                bcrypt.gensalt()
+            ).decode("utf-8")
+
+            con.execute("""
+                INSERT INTO users(
+                    employee_id,
+                    full_name,
+                    username,
+                    password,
+                    role,
+                    department,
+                    mobile,
+                    email,
+                    security_question,
+                    security_answer,
+                    status
+                )
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                "EMP001",
+                "Administrator",
+                "admin",
+                password_hash,
+                "Super Admin",
+                "Administration",
+                "9876543210",
+                "admin@hospital.com",
+                "What is your favourite color?",
+                "Blue",
+                "Active"
+            ))
+
+        con.commit()
+
+    # Try to initialize the existing ERP tables too.
+    try:
         import config.paths as app_paths
         app_paths.DATABASE_DIR = str(DB.parent)
 
-        # Initialize all existing ERP core tables.
         from database.database import Database
-
         db = Database()
         db.connect()
         db.close()
 
-        # Ensure the login users table exists and demo admin is present.
-        with sqlite3.connect(DB) as con:
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS users(
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_id TEXT UNIQUE,
-                    full_name TEXT NOT NULL,
-                    username TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    role TEXT NOT NULL,
-                    department TEXT,
-                    mobile TEXT,
-                    email TEXT,
-                    security_question TEXT,
-                    security_answer TEXT,
-                    status TEXT DEFAULT 'Active',
-                    last_login TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    failed_attempts INTEGER DEFAULT 0,
-                    account_locked INTEGER DEFAULT 0
-                )
-            """)
+    except Exception as exc:
+        print(f"⚠ ERP core-table initialization warning: {exc}")
 
-            existing = con.execute(
-                "SELECT id FROM users WHERE username=? COLLATE NOCASE",
-                ("admin",)
-            ).fetchone()
-
-            if not existing:
-                password_hash = bcrypt.hashpw(
-                    b"admin123",
-                    bcrypt.gensalt()
-                ).decode("utf-8")
-
-                con.execute("""
-                    INSERT INTO users(
-                        employee_id,
-                        full_name,
-                        username,
-                        password,
-                        role,
-                        department,
-                        mobile,
-                        email,
-                        security_question,
-                        security_answer,
-                        status
-                    )
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    "EMP001",
-                    "Administrator",
-                    "admin",
-                    password_hash,
-                    "Super Admin",
-                    "Administration",
-                    "9876543210",
-                    "admin@hospital.com",
-                    "What is your favourite color?",
-                    "Blue",
-                    "Active"
-                ))
-
-            con.commit()
-
-        print(f"✅ DEMO DATABASE READY: {DB}")
-
-    except Exception as e:
-        print(f"❌ DEMO DATABASE INITIALIZATION FAILED: {type(e).__name__}: {e}")
-
+    print(f"✅ Render demo database ready: {DB}")
+    print("✅ Demo login: admin / admin123")
 
 initialize_demo_database()
+
+
 # ============================================================
 # REQUEST MODELS
 # ============================================================
